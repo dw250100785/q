@@ -65,18 +65,18 @@ Features
 
 | Name        | Description           
 | ------------------|:---------------------:|
-| [JSON ](https://github.com/kataras/q/response/tree/master/json)      | JSON Response Engine (Default)
-| [JSONP ](https://github.com/kataras/q/response/tree/master/jsonp)      | JSONP Response Engine (Default)
-| [XML ](https://github.com/kataras/q/response/tree/master/xml)      | XML Response Engine (Default)
-| [Markdown ](https://github.com/kataras/q/response/tree/master/markdown)      | Markdown Response Engine (Default)
-| [Text](https://github.com/kataras/q/response/tree/master/text)      | Text Response Engine (Default)
-| [Binary Data ](https://github.com/kataras/q/response/tree/master/data)      | Binary Data Response Engine (Default)
-| [HTML/Default Engine ](https://github.com/kataras/q/template/tree/master/html)      | HTML Template Engine (Default)
-| [Django Engine ](https://github.com/kataras/q/template/tree/master/django)      | Django Template Engine
-| [Pug/Jade Engine ](https://github.com/kataras/q/template/tree/master/pug)      | Pug Template Engine
-| [Handlebars Engine ](https://github.com/kataras/q/template/tree/master/handlebars)      | Handlebars Template Engine
-| [Amber Engine ](https://github.com/kataras/q/template/tree/master/amber)      | Amber Template Engine
-| [Markdown Engine ](https://github.com/kataras/q/template/tree/master/markdown)      | Markdown Template Engine
+| [JSON ](https://github.com/kataras/q/tree/master/response/json)      | JSON Response Engine (Default)
+| [JSONP ](https://github.com/kataras/q/tree/master/response/jsonp)      | JSONP Response Engine (Default)
+| [XML ](https://github.com/kataras/q/rtree/master/esponse/xml)      | XML Response Engine (Default)
+| [Markdown ](https://github.com/kataras/q/tree/master/response/markdown)      | Markdown Response Engine (Default)
+| [Text](https://github.com/kataras/q/tree/master/response/text)      | Text Response Engine (Default)
+| [Binary Data ](https://github.com/kataras/q/tree/master/response/data)      | Binary Data Response Engine (Default)
+| [HTML/Default Engine ](https://github.com/kataras/q/tree/master/template/html)      | HTML Template Engine (Default)
+| [Django Engine ](https://github.com/kataras/q/tree/master/template/django)      | Django Template Engine
+| [Pug/Jade Engine ](https://github.com/kataras/q/tree/master/template/pug)      | Pug Template Engine
+| [Handlebars Engine ](https://github.com/kataras/q/tree/master/template/handlebars)      | Handlebars Template Engine
+| [Amber Engine ](https://github.com/kataras/q/tree/master/template/amber)      | Amber Template Engine
+| [Markdown Engine ](https://github.com/kataras/q/tree/master/template/markdown)      | Markdown Template Engine
 | [Basicauth Middleware ](https://github.com/q-contrib/middleware/tree/master/basicauth)      | HTTP Basic authentication
 | [Cors Middleware ](https://github.com/q-contrib/middleware/tree/master/cors)      | Cross Origin Resource Sharing W3 specification
 | [Secure Middleware ](https://github.com/q-contrib/middleware/tree/master/secure) |  Facilitates some quick security wins
@@ -727,6 +727,51 @@ q.Q{Host: "mydomain.com:80",
   },
 }.Go()
 
+}
+```
+
+### Flash messages
+
+**A flash message is used in order to keep a message in session through one request of the same user**. By default, it is removed from session after it has been displayed to the user. Flash messages are usually used in combination with HTTP redirections, because in this case there is no view, so messages can only be displayed in the request that follows redirection.
+
+**A flash message has a name and a content (AKA key and value). It is an entry of a map**. The name is a string: often "notice", "success", or "error", but it can be anything. The content is usually a string. You can put HTML tags in your message if you display it raw. You can also set the message value to a number or an array: it will be serialized and kept in session like a string.
+
+----
+
+```go
+
+// SetFlash sets a flash message, accepts 2 parameters the key(string) and the value(string)
+
+// the value will be available on the NEXT request
+
+SetFlash(key string, value string)
+
+// GetFlash get a flash message by it's key
+
+// returns the value as string and an error
+
+//
+
+// if the cookie doesn't exists the string is empty and the error is filled
+
+// after the request's life the value is removed
+
+GetFlash(key string) (value string, err error)
+
+// GetFlashes returns all the flash messages for available for this request
+
+GetFlashes() map[string]string
+
+```
+
+
+```go
+func myHandler(ctx *q.Context) {
+  q.SetFlash("message", "Hello") // message: "hello" is removed on the first request which done by THE SAME CLIENT, will get this value  
+}
+
+func myHandler2(ctx *q.Context){ // same client, user
+  hello := q.GetFlash("message")
 }
 ```
 
