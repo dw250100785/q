@@ -2,7 +2,6 @@ package q
 
 import (
 	"mime"
-	"net/http/pprof"
 	"os"
 	"path"
 	"path/filepath"
@@ -189,56 +188,6 @@ func (favicon Favicon) ParseEntry(e Entry) Entry {
 	if e.Method == "" && e.Method != MethodHead {
 		e.Method = MethodGet
 	}
-	return e
-}
-
-// it's not 'direct' file system, but whatever everything in the os is files so... profile entry stays here.
-
-// Profile is the pprof profile entry
-type Profile struct{}
-
-// ParseEntry returns the pprof entry, implements the EntryParser
-func (s Profile) ParseEntry(e Entry) Entry {
-	if e.Path == "" {
-		e.Path = "/pprof"
-	}
-
-	e.Path += "/*action"
-
-	indexHandler := ToHandler(pprof.Index)
-	cmdlineHandler := ToHandler(pprof.Cmdline)
-	profileHandler := ToHandler(pprof.Profile)
-	symbolHandler := ToHandler(pprof.Symbol)
-	goroutineHandler := ToHandler(pprof.Handler("goroutine"))
-	heapHandler := ToHandler(pprof.Handler("heap"))
-	threadcreateHandler := ToHandler(pprof.Handler("threadcreate"))
-	debugBlockHandler := ToHandler(pprof.Handler("block"))
-
-	h := func(ctx *Context) {
-		ctx.SetContentType(contentHTML + "; charset=" + ctx.q.Charset)
-		action := ctx.Param("action")
-		if len(action) > 1 {
-			if strings.Contains(action, "cmdline") {
-				cmdlineHandler((ctx))
-			} else if strings.Contains(action, "profile") {
-				profileHandler(ctx)
-			} else if strings.Contains(action, "symbol") {
-				symbolHandler(ctx)
-			} else if strings.Contains(action, "goroutine") {
-				goroutineHandler(ctx)
-			} else if strings.Contains(action, "heap") {
-				heapHandler(ctx)
-			} else if strings.Contains(action, "threadcreate") {
-				threadcreateHandler(ctx)
-			} else if strings.Contains(action, "debug/block") {
-				debugBlockHandler(ctx)
-			}
-		} else {
-			indexHandler(ctx)
-		}
-	}
-
-	e.Handler = h
 	return e
 }
 

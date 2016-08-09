@@ -1054,6 +1054,7 @@ The Q's philosophy is to provide robust tooling for HTTP, making it a great solu
 
 Q web framework does not force you to use any specific ORM or template engine. With support for the most used template engines, you can quickly craft the perfect application.
 
+If for any personal reasons you think that Q+net/http is not suitable for you, but you don't want to miss the unique features that Q provides, you can take a look at the [Iris web framework](https://github.com/kataras/iris), which happens to be the fastest web framework was maden so far.
 
 
 Testing

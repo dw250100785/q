@@ -41,6 +41,27 @@ func (templates Templates) loadTo(t *templateEngines) {
 	}
 }
 
+// TemplateLayout (almost all q's template engines support this) is a Entry Parser, useful when you have group of routes sharing the same template view layout
+// Usage
+//
+// q.Entry{Path :"/profile", Parser: TemplateLayout{"layouts/profile.html"}, q.Entries { q.Entry{/*...*/}}}
+type TemplateLayout struct {
+	Layout string
+}
+
+//type TemplateLayoutParser string // yes an Entry Parser can be simple string also, go is powerful, but we keep using struct because all other entries have more than one property, but you can do that!
+
+// ParseEntry returns the converter Entry, which is a group of entries using the same template Layout
+func (t TemplateLayout) ParseEntry(e Entry) Entry {
+	if t.Layout == "" {
+		return e
+	}
+	e.Begin = append(e.Begin, func(ctx *Context) {
+		ctx.Set(TemplateLayoutContextKey, t.Layout)
+	})
+	return e
+}
+
 var (
 	builtinFuncs = [...]string{"url", "urlpath"}
 
