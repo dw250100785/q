@@ -67,7 +67,7 @@ Features
 | ------------------|:---------------------:|
 | [JSON ](https://github.com/kataras/q/tree/master/response/json)      | JSON Response Engine (Default)
 | [JSONP ](https://github.com/kataras/q/tree/master/response/jsonp)      | JSONP Response Engine (Default)
-| [XML ](https://github.com/kataras/q/rtree/master/esponse/xml)      | XML Response Engine (Default)
+| [XML ](https://github.com/kataras/q/tree/master/response/xml)      | XML Response Engine (Default)
 | [Markdown ](https://github.com/kataras/q/tree/master/response/markdown)      | Markdown Response Engine (Default)
 | [Text](https://github.com/kataras/q/tree/master/response/text)      | Text Response Engine (Default)
 | [Binary Data ](https://github.com/kataras/q/tree/master/response/data)      | Binary Data Response Engine (Default)
