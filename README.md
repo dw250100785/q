@@ -226,177 +226,6 @@ Make use of [Proxy func](https://github.com/kataras/q/blob/master/proxy.go) to r
 go q.Proxy("mydomain.com:80", "https://mydomain.com")
 ```
 
-
-### The Q iteral
-We will explain each field later, but first take a general view:
-
-```go
-  // EventEmmiter allows to .Emit custom-internal events and catch these events with .On(evt,func(data ...interface{}))
-	EventEmmiter
-	// start  http server
-
-  // Host is the listening address of form: 'host:port'
-	Host              string      // required at all cases
-  // optional, normally is setted by Host if DisableServer is false, otherwise you can use it like a 'virtual' scheme, if you use nginx or caddy to serve q
-	Scheme            string      
-  //unix socket, server listening
-  Mode              os.FileMode
-  // for manual listen tls
-	CertFile, KeyFile string     
-  // if true then the .Go is not listens and serves, it prepares the net/http handler to be used inside a custom handler, the Host should be given in any case for smooth experience.
-	DisableServer     bool       
-
-  // end http server
-
-  // Charset used to render/send responses to the client
-	Charset string
-  // If true then templates and response engines will be rendered using Gzip compression,
-  // you can still disable each render's gzip with: q.RenderOptions{"gzip": false} on the context.Render func
-	Gzip    bool
-  // If true then you get some logs on specific cases, only for errors mostly.
-	DevMode bool
-	// TimeFormat default time format for any kind of datetime parsing
-	TimeFormat string
-	// StaticCacheDuration expiration duration for INACTIVE served static files
-	StaticCacheDuration time.Duration
-
-	Logger     *log.Logger
-	Events      map[string][]func(...interface{})
-  Request Request{
-    DisablePathCorrection bool
-    DisablePathEscape     bool
-    // AllowMethodOptions if setted to true to allow all routes to be served to the client when http method 'OPTIONS', useful when user uses the Cors middleware
-    // defaults to false
-    AllowMethodOptions bool
-    // Custom http errors handlers
-    Errors map[int]func(*Context)
-    // Middleware before any entry's main handler
-    Begin []func(*Context)
-    // Middleware after any entry's main handler
-    Done []func(*Context)
-    // if !=nil then this is used for the main router
-    // if !=nil then the .Entry/.Entries,context.RedirectTo & all q's static handler will not work, you have to build them by yourself.
-    Handler func(*Context)
-    // The Routes
-    Entries []Entry{
-    	// Name, optional, the name of the entry, used for .URL/.Path/context.RedirectTo inside templates: {{ url }}, {{ urlpath}}
-    	Name string
-    	// The http method
-    	Method string
-      // set to true if you want this entry to be valid on HEAD http method also, defaults to false, useful when the entry serves static files
-    	Head   bool
-    	// The request path
-    	Path string // if empty then this will be available using all http methods
-    	// Middleware before Handler
-    	Begin Handlers
-    	// Middleware after the Handler
-    	Done Handlers
-    	// The main entry's Handler
-    	Handler Handler
-    	// Any children entries, use it to group routes with the same prefix and middleware
-    	Entries Entries
-    	// Parser is the method which can be used to change the fields of a user-defined Entry
-    	// look fs.go for more
-    	Parser interface{
-        ParseEntry(e Entry) Entry
-      }
-    }
-  }
-
-	Templates  []Template{
-		Engine   interface{
-      LoadDirectory(directory string, extension string) error
-      LoadAssets(virtualDirectory string, virtualExtension string, assetFn func(name string) ([]byte, error), namesFn func() []string) error
-      ExecuteWriter(out io.Writer, name string, binding interface{}, options ...map[string]interface{}) error
-    }
-		// location
-		Directory string
-		Extension string
-		// binary (optional)
-		Assets func(name string) ([]byte, error)
-		Names  func() []string
-  }
-
-	Responses  []Response{
-    Engine      interface{
-      Response(interface{}, ...map[string]interface{}) ([]byte, error)
-    }
-    Name        string
-    ContentType string  
-  }
-
-  Session  Session{
-    // Cookie string, the session's client cookie name, for example: "ericasessionid"
-    Cookie string
-    // DecodeCookie set it to true to decode the cookie key with base64 URLEncoding
-    // Defaults to false
-    DecodeCookie bool
-    // Expires the duration of which the cookie must expires (created_time.Add(Expires)).
-    // If you want to delete the cookie when the browser closes, set it to -1 but in this case, the server side's session duration is up to GcDuration
-    //
-    // Default infinitive/unlimited life duration(0)
-
-    Expires time.Duration
-    // GcDuration every how much duration(GcDuration) the memory should be clear for unused cookies (GcDuration)
-    // for example: time.Duration(2)*time.Hour. it will check every 2 hours if cookie hasn't be used for 2 hours,
-    // deletes it from backend memory until the user comes back, then the session continue to work as it was
-    //
-    // Default 2 hours
-    GcDuration time.Duration
-
-    // DisableSubdomainPersistence set it to true in order dissallow your q subdomains to have access to the session cookie
-    // defaults to false
-    DisableSubdomainPersistence bool
-    // UseSessionDB registers a session database, you can register more than one
-    // accepts a session database which implements a Load(sid string) map[string]interface{} and an Update(sid string, newValues map[string]interface{})
-    // the only reason that a session database will be useful for you is when you want to keep the session's values/data after the app restart
-    // a session database doesn't have write access to the session, it doesn't accept the context, so forget 'cookie database' for sessions, I will never allow that, for your protection.
-    //
-    // Note: Don't worry if no session database is registered, your context.Session will continue to work.
-    Databases []interface{
-      Load(string) map[string]interface{}
-      Update(string, map[string]interface{})
-    }
-  }
-
-	Websockets []Websocket{
-    // Endpoint is the path which the websocket server will listen for clients/connections
-    // Default value is empty string, if you don't set it the Websocket server is disabled.
-    Endpoint string
-    // Handler the main handler, when a client connects
-    Handler WebsocketConnectionFunc
-    // ClientSourcePath is the path which the javascript client-side library for Q websockets will be served
-    // it's the request path, not the system path, there is no system path, the Q is automatically provides the source code without any needed system file.
-    // Default value is /qws.js, means that you will have to import the 'yourdomain.com/qws.js' using the html script tag
-    ClientSourcePath string
-
-    Error       func(res http.ResponseWriter, req *http.Request, status int, reason error)
-    CheckOrigin func(req *http.Request) bool
-    // WriteTimeout time allowed to write a message to the connection.
-    // Default value is 15 * time.Second
-    WriteTimeout time.Duration
-    // PongTimeout allowed to read the next pong message from the connection
-    // Default value is 60 * time.Second
-    PongTimeout time.Duration
-    // PingPeriod send ping messages to the connection with this period. Must be less than PongTimeout
-    // Default value is (PongTimeout * 9) / 10
-    PingPeriod time.Duration
-    // MaxMessageSize max message size allowed from connection
-    // Default value is 1024
-    MaxMessageSize int64
-
-    // ReadBufferSize is the buffer size for the underline reader
-    ReadBufferSize int
-    // WriteBufferSize is the buffer size for the underline writer
-    WriteBufferSize int
-  }
-
-```
-
-Is pretty big but **all fields except the 'Host' and 'Tester' have default values**,
-so if you miss any field means that you don't need to cusomize/change its behavior :)
-
-
 ## Events (custom app's internal)
 
 Events can be used to communicate with your app's lifecycle and actions, you can register any custom event and listeners, Q provides only one built'n event which is the `build`, fired before building and running.
@@ -998,11 +827,11 @@ To("anyCustomRoom").Emit/EmitMessage...
 
 // Send to all opened connections/clients
 
-To(websocket.All).Emit/EmitMessage...
+To(q.All).Emit/EmitMessage...
 
 // Send to all opened connections/clients EXCEPT this client(c)
 
-To(websocket.NotMe).Emit/EmitMessage...
+To(q.NotMe).Emit/EmitMessage...
 
 // Rooms, group of connections/clients
 
@@ -1195,9 +1024,19 @@ Versioning
 ------------
 
 Current: **v.0.0.1**
-
 >  Q is an active project
 
+Read more about Semantic Versioning 2.0.0
+
+-  http://semver.org/
+-  https://en.wikipedia.org/wiki/Software_versioning
+-  https://wiki.debian.org/UpstreamGuide#Releases_and_Versions
+
+TODO
+------------
+
+- [ ] [rizla](https://github.com/kataras/rizla) monitor integration for re-build on code chages, when `DevMode` is true.
+- [ ] Add unit tests where Cyclomatic complexity is high
 
 People
 ------------
