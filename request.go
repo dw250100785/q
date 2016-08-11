@@ -57,6 +57,11 @@ func (e Entry) doParse() Entry {
 	return e
 }
 
+// Errors is used inside Request.Errors fields
+// catch custom http status code errors via Handlers
+// it's map[int]Handler
+type Errors map[int]Handler
+
 // Request the iteral which keeps all router's configuration, register routes/entries, set middleware with Begin & Done & set custom http errors with the Errors field:
 type Request struct {
 	DisablePathCorrection bool
@@ -65,7 +70,7 @@ type Request struct {
 	// defaults to false
 	AllowMethodOptions bool
 	// Custom http errors handlers
-	Errors map[int]Handler
+	Errors Errors
 	// Middleware before any entry's main handler
 	Begin Handlers
 	// Middleware after any entry's main handler

@@ -331,7 +331,7 @@ func (q *Q) acquireCtx(res http.ResponseWriter, req *http.Request) *Context {
 	return ctx
 }
 
-func (q *Q) releaseCtx(ctx interface{}) {
+func (q *Q) releaseCtx(ctx *Context) {
 	q.Request.contextPool.Put(ctx)
 }
 

@@ -386,6 +386,27 @@ Request: q.Request{
 
 ```
 
+### Custom HTTP Errors
+
+Catch http errors (status code) via the `Request.Errors` field  which underline it's just a a `map[int]Handler`.
+
+```go
+q.Q{Host: "mydomain.com:80",
+Request: q.Request{
+  Errors: q.Errors{
+    q.StatusNotFound: func(ctx *q.Context){
+      ctx.WriteString("The page you're looking for doesn' exists!")
+      // or ctx.HTML or ctx.Render("errors/404.html") all context's methods are allowed.
+    },
+    q.StatusForbidden: func(ctx *q.Context){
+      ctx.WriteString("You're not allowed to be here!")
+    },//....
+  },
+    /* other fields here...*/
+  },
+}}.Go()
+
+```
 
 ## Templates [optional field]
 
@@ -1069,7 +1090,7 @@ I recommend writing your API tests using this new library, [httpexpect](https://
 Versioning
 ------------
 
-Current: **v.0.0.1**
+Current: **0.0.1**
 >  Q is an active project
 
 Read more about Semantic Versioning 2.0.0
