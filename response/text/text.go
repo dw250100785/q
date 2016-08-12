@@ -20,7 +20,7 @@ func New(cfg ...Config) *Engine {
 }
 
 // Response accepts the 'object' value and converts it to bytes in order to be 'renderable'
-// implements the Q.ResponseEngine
+// implements the q.ResponseEngine
 func (e *Engine) Response(val interface{}, options ...map[string]interface{}) ([]byte, error) {
 	return []byte(val.(string)), nil
 }

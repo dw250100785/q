@@ -2,8 +2,6 @@ package xml
 
 import (
 	"encoding/xml"
-
-	"github.com/valyala/bytebufferpool"
 )
 
 const (
@@ -13,8 +11,7 @@ const (
 
 // Engine the response engine which renders an XML 'object'
 type Engine struct {
-	config     Config
-	bufferPool bytebufferpool.Pool
+	config Config
 }
 
 // New returns a new xml response engine
@@ -24,10 +21,9 @@ func New(cfg ...Config) *Engine {
 }
 
 // Response accepts the 'object' value and converts it to bytes in order to be 'renderable'
-// implements the Q.ResponseEngine
+// implements the q.ResponseEngine
 func (e *Engine) Response(val interface{}, options ...map[string]interface{}) ([]byte, error) {
-	w := e.bufferPool.Get()
-	defer e.bufferPool.Put(w)
+
 	var result []byte
 	var err error
 
@@ -40,11 +36,8 @@ func (e *Engine) Response(val interface{}, options ...map[string]interface{}) ([
 	if err != nil {
 		return nil, err
 	}
-
 	if len(e.config.Prefix) > 0 {
-		w.Write(e.config.Prefix)
+		result = append(e.config.Prefix, result...)
 	}
-
-	w.Write(result)
-	return w.Bytes(), nil
+	return result, nil
 }

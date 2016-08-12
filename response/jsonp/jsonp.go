@@ -2,8 +2,6 @@ package jsonp
 
 import (
 	"encoding/json"
-
-	"github.com/valyala/bytebufferpool"
 )
 
 const (
@@ -13,8 +11,7 @@ const (
 
 // Engine the response engine which renders a JSONP 'object' with its callback
 type Engine struct {
-	config     Config
-	bufferPool bytebufferpool.Pool
+	config Config
 }
 
 // New returns a new jsonp response engine
@@ -31,13 +28,16 @@ func (e *Engine) getCallbackOption(options map[string]interface{}) string {
 	return e.config.Callback
 }
 
+var (
+	finishCallbackB = []byte(");")
+	newLineB        = []byte("\n")
+)
+
 // Response accepts the 'object' value and converts it to bytes in order to be 'renderable'
-// implements the Q.ResponseEngine
+// implements the q.ResponseEngine
 func (e *Engine) Response(val interface{}, options ...map[string]interface{}) ([]byte, error) {
 	var result []byte
 	var err error
-	w := e.bufferPool.Get()
-	defer e.bufferPool.Put(w)
 	if e.config.Indent {
 		result, err = json.MarshalIndent(val, "", "  ")
 	} else {
@@ -55,15 +55,12 @@ func (e *Engine) Response(val interface{}, options ...map[string]interface{}) ([
 	}
 
 	if callback != "" {
-		w.Write([]byte(callback + "("))
-		w.Write(result)
-		w.Write([]byte(");"))
-	} else {
-		w.Write(result)
+		result = append([]byte(callback+"("), result...)
+		result = append(result, finishCallbackB...)
 	}
 
 	if e.config.Indent {
-		w.Write([]byte("\n"))
+		result = append(result, newLineB...)
 	}
-	return w.Bytes(), nil
+	return result, nil
 }
