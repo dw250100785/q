@@ -29,6 +29,12 @@ const (
 	contentType = "Content-Type"
 	// ContentLength represents the header["Content-Length"]
 	contentLength = "Content-Length"
+	// contentEncodingHeader represents the header["Content-Encoding"]
+	contentEncodingHeader = "Content-Encoding"
+	// varyHeader represents the header "Vary"
+	varyHeader = "Vary"
+	// acceptEncodingHeader represents the header key & value "Accept-Encoding"
+	acceptEncodingHeader = "Accept-Encoding"
 	// ContentHTML is the  string of text/html response headers
 	contentHTML = "text/html"
 	// ContentBinary header value for binary data.
@@ -478,11 +484,24 @@ func (ctx *Context) WriteString(format string, a ...interface{}) {
 	io.WriteString(ctx.ResponseWriter, fmt.Sprintf(format, a...))
 }
 
+func (ctx *Context) clientAllowsGzip() bool {
+	if h := ctx.RequestHeader(acceptEncodingHeader); h != "" {
+		for _, v := range strings.Split(h, ";") {
+			if strings.Contains(v, "gzip") { // we do Contains because sometimes browsers has the q=, we don't use it atm. || strings.Contains(v,"deflate"){
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // WriteGzip accepts bytes, which will be compressed using gzip compression and will be sent to the client
 func (ctx *Context) WriteGzip(b []byte) (int, error) {
+	ctx.ResponseWriter.Header().Add(varyHeader, acceptEncodingHeader)
 	n, err := WriteGzip(ctx.ResponseWriter, b)
 	if err == nil {
-		ctx.ResponseWriter.Header().Add("Content-Encoding", "gzip")
+		ctx.SetHeader("Content-Encoding", "gzip")
 	}
 	return n, err
 }
@@ -569,8 +588,9 @@ func (ctx *Context) ServeContent(content io.ReadSeeker, filename string, modtime
 	h.Set(lastModified, modtime.UTC().Format(ctx.q.TimeFormat))
 
 	var out io.Writer
-	if gzipCompression {
-		h.Add("Content-Encoding", "gzip")
+	if gzipCompression && ctx.clientAllowsGzip() {
+		h.Add(varyHeader, acceptEncodingHeader)
+		h.Set(contentEncodingHeader, "gzip")
 		gzipWriter := AcquireGzip(ctx.ResponseWriter)
 		defer ReleaseGzip(gzipWriter)
 		out = gzipWriter

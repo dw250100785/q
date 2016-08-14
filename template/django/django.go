@@ -188,5 +188,5 @@ func (p *Engine) ExecuteWriter(out io.Writer, name string, binding interface{}, 
 		return tmpl.ExecuteWriter(getPongoContext(binding), out)
 	}
 
-	return fmt.Errorf("[IRIS TEMPLATES] Template with name %s doesn't exists in the dir", name)
+	return fmt.Errorf("[Q TEMPLATES] Template with name %s doesn't exists in the dir", name)
 }

@@ -96,7 +96,7 @@ type (
 	}
 
 	// TemplateEngineFuncs is optional interface for the TemplateEngine
-	// used to insert the Iris' standard funcs, see var 'usedFuncs'
+	// used to insert the Q' standard funcs, see var 'usedFuncs'
 	TemplateEngineFuncs interface {
 		// Funcs should returns the context or the funcs,
 		// this property is used in order to register the q' helper funcs
@@ -114,7 +114,7 @@ type (
 )
 
 // IsFree returns true if a function can be inserted to this map
-// return false if this key is already used by Iris
+// return false if this key is already used by Q
 func (t TemplateFuncs) IsFree(key string) bool {
 	for i := range builtinFuncs {
 		if builtinFuncs[i] == key {
@@ -254,8 +254,9 @@ func (t *templateEngineWrapper) execute(ctx *Context, filename string, binding i
 	ctx.SetContentType(contentHTML + "; charset=" + charset)
 
 	var out io.Writer
-	if gzipEnabled {
-		ctx.ResponseWriter.Header().Add("Content-Encoding", "gzip")
+	if gzipEnabled && ctx.clientAllowsGzip() {
+		ctx.ResponseWriter.Header().Add(varyHeader, acceptEncodingHeader)
+		ctx.SetHeader(contentEncodingHeader, "gzip")
 		gzipWriter := AcquireGzip(ctx.ResponseWriter)
 		defer ReleaseGzip(gzipWriter)
 		out = gzipWriter

@@ -166,9 +166,8 @@ const (
  | |  | |
  | |  | |
  | |__| |
-  \___\_\
-
-          ` + Version + ` `
+  \___\_\  ` + Version + `
+`
 )
 
 // Q contains the http server with it's mux, websocket api, sessions manager, template engines, response engines, general configuration,
