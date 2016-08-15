@@ -7,13 +7,19 @@ package q
 // q.Q{
 //   Host:         "localhost:80",
 // 	DevMode:       true,
-// 	SSH:           q.SSH{Host: "localhost:8888", KeyPath: "./q_rsa_generate_if_not_exists", Users: q.Users{"kataras": []byte("pass")}},
+// 	SSH:           q.SSH{Host: "localhost:22", KeyPath: "./q_rsa_generate_if_not_exists", Users: q.Users{"kataras": []byte("pass")}},
 // 	// other fields here...
 // }.Go()
 //
 // Usage:
+// via interactive command shell:
 //
-// ssh kataras@localhost -p 8888 help
+// $ ssh kataras@localhost
+//
+// or via standalone command and exit:
+//
+// $ ssh kataras@localhost -p help
+//
 //
 // Commands available:
 //
@@ -21,6 +27,7 @@ package q
 // start
 // restart
 // help
+// exit
 
 import (
 	"bytes"
@@ -37,6 +44,7 @@ import (
 
 	"github.com/kataras/q/errors"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
@@ -51,6 +59,7 @@ COMMANDS:
 	  {{ end }}
 USAGE:
 	  ssh myusername@{{ .Hostname}} -p {{ .Port }} {{ first .Commands}}
+	  or just write the command below
 VERSION:
 	  {{ .Version }}
 
@@ -111,20 +120,6 @@ func (c *Commands) ByName(commandName string) (cmd Command, found bool) {
 	}
 	return
 }
-
-/* these goes to Q instance's builder
-var defaultCommands = Commands{
-	Command{Name: "stop", Description: "Stops the http server", Action: func(conn ssh.Channel) {
-
-	}},
-	Command{Name: "start", Description: "", Action: func(conn ssh.Channel) {
-
-	}},
-	Command{Name: "restart", Description: "", Action: func(conn ssh.Channel) {
-
-	}},
-}
-*/
 
 // Users SSH.Users field, it's just map[string][]byte (username:password)
 type Users map[string][]byte
@@ -208,8 +203,7 @@ func sendExitStatus(ch ssh.Channel) {
 
 var errInvalidSSHCommand = errors.New("Invalid Command: '%s'")
 
-func parsePayload(payloadB []byte, prefix string) (string, error) {
-	payload := string(payloadB)
+func parsePayload(payload string, prefix string) (string, error) {
 	payloadUTF8 := strings.Map(func(r rune) rune {
 		if r >= 32 && r < 127 {
 			return r
@@ -245,7 +239,7 @@ type SSH struct {
 	Users    Users    // map[string]string{ "username":[]byte("password"), "my_second_username" : []byte("my_second_password")}
 	Commands Commands // Commands{Command{Name: "restart", Description:"restarts & rebuild the server", Action: func(ssh.Channel){}}}
 	// note for Commands field:
-	// the default  Q's commands are defined inside the q.go file, I tried to make this file as standalone as I can, because it will be used for Iris web framework also.
+	// the default  Q's commands are defined at the end of this file, I tried to make this file as standalone as I can, because it will be used for Iris web framework also.
 	Shell  bool        // Set it to true to enable execute terminal's commands(system commands) via ssh if no other command is found from the Commands field. Defaults to false for security reasons
 	Logger *log.Logger // log.New(...)/ $qinstance.Logger, fill it when you want to receive debug and info/warnings messages
 }
@@ -266,13 +260,17 @@ func (s *SSH) logf(format string, a ...interface{}) {
 	}
 }
 
+// commands that exists on all ssh interfaces, both Q and Iris(future)
+var standardCommands = Commands{Command{Name: "help", Description: "Opens up the assistance"},
+	Command{Name: "exit", Description: "Exits from the terminal (if interactive shell)"}}
+
 func (s *SSH) writeHelp(wr io.Writer) {
 	port := parsePort(s.Host)
 	hostname := parseHostname(s.Host)
 
 	data := map[string]interface{}{
 		"Hostname": hostname, "Port": port,
-		"Commands": s.Commands,
+		"Commands": append(s.Commands, standardCommands...),
 		"Version":  Version,
 	}
 
@@ -362,7 +360,7 @@ func (s *SSH) handleChannel(newChannel ssh.NewChannel) {
 		defer func() {
 			conn.Close()
 			//debug
-			//log.Println("Session closed")
+			s.logf("Session closed")
 		}()
 
 		for req := range in {
@@ -383,13 +381,56 @@ func (s *SSH) handleChannel(newChannel ssh.NewChannel) {
 
 			case "shell":
 				{
-					// comes after pty-req
-					return
+					// comes after pty-req, this is when the user just use this form: ssh kataras@mydomain.com -p 22
+					// then we want interactive shell which will execute the commands:
+					term := terminal.NewTerminal(conn, "> ")
+
+					for {
+						line, lerr := term.ReadLine()
+						if lerr == io.EOF {
+							return
+						}
+						if lerr != nil {
+							err = lerr
+							s.logf(lerr.Error())
+							continue
+						}
+
+						payload, perr := parsePayload(line, "")
+						if perr != nil {
+							err = perr
+							return
+						}
+
+						if payload == "help" {
+							s.writeHelp(conn)
+							continue
+						} else if payload == "exit" {
+							return
+						}
+
+						if cmd, found := s.Commands.ByName(payload); found {
+							cmd.Action(conn)
+						} else if s.Shell {
+							// yes every time check that
+							if isWindows {
+								execCmd(exec.Command("cmd", "/C", payload), conn)
+							} else {
+								execCmd(exec.Command("sh", "-c", payload), conn)
+							}
+						} else {
+							conn.Write([]byte(errInvalidSSHCommand.Format(payload).Error() + "\n"))
+						}
+
+						//s.logf(line)
+					}
 				}
 
 			case "exec":
 				{
-					payload, perr := parsePayload(req.Payload, "")
+					// this is the place which the user executed something like that: ssh kataras@mydomain.com -p 22 stop
+					// a direct command, we don' t open the interactive shell, just execute the command and exit.
+					payload, perr := parsePayload(string(req.Payload), "")
 					if perr != nil {
 						err = perr
 						return
@@ -417,8 +458,8 @@ func (s *SSH) handleChannel(newChannel ssh.NewChannel) {
 					return
 				}
 			}
-
 		}
+
 	}(reqs)
 
 }
@@ -443,16 +484,16 @@ func (s *SSH) bindTo(q *Q) {
 				if q.listener != nil {
 					q.listener.Close()
 					q.listener = nil
-					conn.Write([]byte("Server has stopped"))
+					conn.Write([]byte("Server has stopped\n"))
 				} else {
-					conn.Write([]byte("Error: Server is not even builded yet!"))
+					conn.Write([]byte("Error: Server is not even builded yet!\n"))
 				}
 			}},
 			Command{Name: "start", Description: "Starts the Q http server", Action: func(conn ssh.Channel) {
 				if q.listener == nil {
 					go q.runServer()
 				}
-				conn.Write([]byte("Server has started"))
+				conn.Write([]byte("Server has started\n"))
 			}},
 			Command{Name: "restart", Description: "Restarts the Q http server. Note: It doesn't re-build the whole Q for security reasons.", Action: func(conn ssh.Channel) {
 				if q.listener != nil {
@@ -460,7 +501,7 @@ func (s *SSH) bindTo(q *Q) {
 					q.listener = nil
 				}
 				go q.runServer()
-				conn.Write([]byte("Server has restarted"))
+				conn.Write([]byte("Server has restarted\n"))
 			}},
 		}
 

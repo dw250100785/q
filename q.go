@@ -54,7 +54,7 @@ import (
 
 const (
 	// Version of the Q Web Framework
-	Version = "0.0.2"
+	Version = "0.0.3"
 	// currently not used but keep it here for any case :), Iris' habits never ends
 	banner = `    ____
   / __ \
