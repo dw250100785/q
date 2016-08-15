@@ -3,7 +3,7 @@
 
 <a href="https://travis-ci.org/kataras/q"><img src="https://img.shields.io/travis/kataras/q.svg?style=flat-square" alt="Build Status"></a>
 <a href="https://github.com/kataras/q/blob/master/LICENSE"><img src="https://img.shields.io/badge/%20license-MIT%20%20License%20-E91E63.svg?style=flat-square" alt="License"></a>
-<a href="https://github.com/kataras/q/releases"><img src="https://img.shields.io/badge/%20release%20-%20v0.0.1-blue.svg?style=flat-square" alt="Releases"></a>
+<a href="https://github.com/kataras/q/releases"><img src="https://img.shields.io/badge/%20release%20-%20v0.0.2-blue.svg?style=flat-square" alt="Releases"></a>
 <a href="#docs"><img src="https://img.shields.io/badge/%20docs-reference-5272B4.svg?style=flat-square" alt="Read me docs"></a>
 <a href="https://kataras.rocket.chat/channel/q"><img src="https://img.shields.io/badge/%20community-chat-00BCD4.svg?style=flat-square" alt="Build Status"></a>
 <a href="https://golang.org"><img src="https://img.shields.io/badge/powered_by-Go-3362c2.svg?style=flat-square" alt="Built with GoLang"></a>
@@ -56,8 +56,10 @@ Features
 - 100% compatible with standard net/http and all third-party middleware that are already spread   
 - Robust routing, static, wildcard subdomains and routes.
 - Websocket API, Sessions support out of the box
+- Remote control over [SSH](https://github.com/kataras/q/blob/master/ssh.go#L3)
 - View system supporting [6+](#templates) template engines
 - Highly scalable response engines
+- Compatible with [Rizla](https://github.com/kataras/rizla), rebuilds the app on source code changes
 - and many other surprises
 
 <img src="https://raw.githubusercontent.com/iris-contrib/website/gh-pages/assets/arrowdown.png" width="72"/>
@@ -1090,7 +1092,7 @@ I recommend writing your API tests using this new library, [httpexpect](https://
 Versioning
 ------------
 
-Current: **0.0.1**
+Current: **0.0.2**
 >  Q is an active project
 
 Read more about Semantic Versioning 2.0.0
@@ -1102,7 +1104,6 @@ Read more about Semantic Versioning 2.0.0
 TODO
 ------------
 
-- [ ] [rizla](https://github.com/kataras/rizla) monitor integration for re-build on code chages, when `DevMode` is true.
 - [ ] Add unit tests where Cyclomatic complexity is high
 
 People
@@ -1138,7 +1139,7 @@ License can be found [here](LICENSE).
 [Travis]: http://travis-ci.org/kataras/q
 [License Widget]: https://img.shields.io/badge/license-MIT%20%20License%20-E91E63.svg?style=flat-square
 [License]: https://github.com/kataras/q/blob/master/LICENSE
-[Release Widget]: https://img.shields.io/badge/release-v0.0.1-blue.svg?style=flat-square
+[Release Widget]: https://img.shields.io/badge/release-v0.0.2-blue.svg?style=flat-square
 [Release]: https://github.com/kataras/q/releases
 [Chat Widget]: https://img.shields.io/badge/community-chat-00BCD4.svg?style=flat-square
 [Chat]: https://kataras.rocket.chat/channel/q

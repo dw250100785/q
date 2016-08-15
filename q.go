@@ -1,148 +1,43 @@
-// q Web framework for golang
-// Usage
+// Q Web framework for Go Programming Language
+//
+// Usage:
+//
 // package main
 //
-// import (
-// 	"time"
-//
-// 	"github.com/kataras/q"
-// 	"github.com/kataras/q/sessiondb/redis"
-// 	"github.com/kataras/q/template/html"
-// )
-//
-// func myMiddleware(ctx *q.Context) {
-// 	// do something here
-// 	ctx.Log("Middleware for path: %s", ctx.Path())
-// 	//use the ctx.Cancel() or ctx.StopExecution() // to cancel the execution for the next handlers
-// }
-//
-// func myHandler(ctx *q.Context) {
-// 	ctx.WriteString("Hello from %s", ctx.Path())
-// }
-//
-// func websocketHandler(conn q.WebsocketConnection) {
-// 	//...
-// }
-//
-// var myQ *q.Q
+// import "github.com/kataras/q"
 //
 // func main() {
 //
-// 	// this will redirect
-// 	// - http://127.0.0.1/$REQUESTED_PATH to the https://127.0.0.1/$REQUESTED_PATH
-// 	// - http://localhost/$REQUESTED_PATH to the https://127.0.0.1/$REQUESTED_PATH
-// 	//go q.Proxy("127.0.0.1:80", "https://127.0.0.1")
-//
-// 	q.Q{
-// 		DevMode:       true,
-// 		Host:          "mydomain.com:80", //:443", // automatic certfile and keyfile if not CertFile & KeyFile has been passed to this iteral
-// 		DisableServer: false,
-// 		Charset:       "UTF-8",
-// 		// Custom events, use it whenever you want in your app's lifecycle
-// 		Events: q.Events{
-// 			// build is the one and only built'n event, you can setup your own to work with.
-// 			// the build sends one parameter which is the current Q instance
-// 			"build": q.EventListeners{beforeBuildEvent1},
-// 		},
-// 		Templates: q.Templates{
-// 			q.Template{Engine: html.New(html.Config{Layout: "layouts/layout.html"})},
-// 		},
-// 		// for websockets, yes you can start more than one websocket server very easly:
-// 		Websockets: q.Websockets{
-// 			q.Websocket{Endpoint: "/ws", Handler: websocketHandler, ClientSourcePath: "/qws.js"}, // the /qws.js is automatically served to the root path
-// 		},
-// 		// for Session
-// 		Session: q.Session{Cookie: "mysessionid", Expires: 4 * time.Hour, GcDuration: 2 * time.Hour, Databases: q.Databases{redis.New()}}, // Databases field is optional, needed when u want to keep the sessions after http server's shutdown or restart.
-// 		Request: q.Request{
-// 			DisablePathCorrection: false,
-// 			DisablePathEscape:     false,
-// 			Begin:                 q.Handlers{myMiddleware},
-// 			Done:                  q.Handlers{myMiddleware},
-// 			Entries: q.Entries{
-// 				// Static favicon first
-// 				//q.Favicon{Entry: q.Entry{Path: "/favicon.ico"}, Favicon: "./assets/favicon.ico"},
-// 				q.Entry{Path: "/favicon.ico", Parser: q.Favicon{Favicon: "./assets/favicon.ico"}},
-// 				q.Entry{Method: "GET", Path: "/home", Handler: myHandler},
-// 				q.Entry{Path: "/profile", Handler: myHandler}, // if no method given then this route-entry is available by all http methods
-// 				q.Entry{Path: "/users", Begin: q.Handlers{myMiddleware}, Done: q.Handlers{myMiddleware},
-// 					Entries: q.Entries{
-// 						q.Entry{Method: "GET", Path: "/signin", Handler: myHandler},
-// 						q.Entry{Path: "/signout", Begin: q.Handlers{myMiddleware}, Done: q.Handlers{myMiddleware}, Handler: myHandler},
-// 					}},
-// 				q.Entry{Path: "mysubdomain.", Begin: q.Handlers{myMiddleware}, Done: q.Handlers{myMiddleware},
-// 					Entries: q.Entries{
-// 						q.Entry{Path: "/signin", Handler: myHandler},
-// 						q.Entry{Path: "/signout", Begin: q.Handlers{myMiddleware}, Done: q.Handlers{myMiddleware}, Handler: myHandler},
-// 						q.Entry{Path: "mysubsubdomain.",
-// 							Entries: q.Entries{
-// 								q.Entry{Path: "/", Handler: myHandler},
-// 							}},
-// 					}},
-//
-// 				// for entry which serves a local directory, you can register it on subdomain also anywhere you want
-// 				// same as : q.Dir{q.Entry{Method: q.MethodGet, Path: "/public"}, "./templates", true}
-// 				q.Entry{Method: q.MethodGet, Path: "/public", Parser: q.Dir{Directory: "./templates", Gzip: true}}, // http://mydomain.com/public/layouts/layout.html will show you the raw contents of the layout.html
-// 				// for Pprof, you can register it on subdomain also anywhere you want
-// 				//q.Profile{Entry: q.Entry{Method: q.MethodGet, Path: "/pprof"}},
-// 				//or this will be better?:
-// 				q.Entry{Method: "GET", Path: "/pprof", Parser: q.Profile{}},
-// 				// for templates
-// 				q.Entry{Path: "/page1", Handler: func(ctx *q.Context) {
-// 					ctx.MustRender("page1.html", nil)
-// 				}},
-// 				q.Entry{Path: "/nolayout", Handler: func(ctx *q.Context) {
-// 					ctx.MustRender("page1.html", nil, q.RenderOptions{"layout": q.NoLayout})
-// 				}},
-// 				// for (default) responses
-// 				q.Entry{Path: "/hi_json", Handler: func(ctx *q.Context) {
-// 					ctx.JSON(q.Map{"name": "q", "age": 1})
-// 				}},
-//
-// 				q.Entry{Path: "/sessions", Entries: q.Entries{
-// 					q.Entry{Method: "GET", Path: "/set", Handler: func(ctx *q.Context) {
-// 						key := "name"
-// 						val := "my Q"
-// 						ctx.Session().Set(key, val)
-// 						ctx.WriteString("Setted: %s=%s", key, val)
-// 					}},
-// 					q.Entry{Method: "GET", Path: "/get", Handler: func(ctx *q.Context) {
-// 						key := "name"
-// 						val := ctx.Session().GetString(key)
-// 						ctx.WriteString("Setted: %s=%s", key, val)
-// 					}},
-// 					q.Entry{Method: "GET", Path: "/clear", Handler: func(ctx *q.Context) {
-// 						ctx.Session().Clear()
-// 						if len(ctx.Session().GetAll()) > 0 {
-// 							ctx.Write([]byte("Session().GetAll didn't worked!"))
-// 						} else {
-// 							ctx.Write([]byte("All Session's values removed, but the cookie exists, use ctx.SessionDestroy() to remove all values and cookie and server-side store."))
-// 						}
-// 					}},
-// 					q.Entry{Method: "GET", Path: "/destroy", Handler: func(ctx *q.Context) {
-// 						ctx.SessionDestroy()
-// 						if len(ctx.Session().GetAll()) > 0 {
-// 							ctx.Write([]byte("SessionDestroy() didn't worked!"))
-// 						} else {
-// 							ctx.Write([]byte("Session destroyed."))
-// 						}
-// 					}},
-// 				}},
-// 			},
-// 		},
-// 	}.Go()
-//
-// }
-//
-// func beforeBuildEvent1(data ...interface{}) { // data maybe any type of messages that the q.Emit("event", anymessage{},here{},"message"), in this case the built'n event 'build' sends the current Q instance.
-// 	myQ := data[0].(*q.Q)
-// 	myQ.Logger.Println("Right before building the server, you can still use the myQ.Request.Entries.Add(Entry) to add an entry from a 'plugin' or something like this! ")
-// 	// the build sends one parameter which is the current Q instance, let's grab it
-//
-// 	myQ.Request.Entries.Add(q.Entry{Method: "GET", Path: "/builded", Handler: func(ctx *q.Context) {
-// 		ctx.HTML("<h1>Hello</h1>This entry/route builded just before the server ran,<br/><b>you can use that method to inject any other runtime-routes/entries you want to register to the Q web framework.</b>")
-// 	}})
-//
-// 	//ok, go to http://mydomain.com/builded or http://127.0.0.1/builded or whatever you setted as 'Host' field in the Q instance creation and you will see that the entry is served like others
+// q.Q{
+//   Host: "mydomain.com:80",
+//   Request: q.Request{
+//     Entries: q.Entries{
+//       // Favicon
+//       q.Entry{Path: "/favicon.ico", Parser: q.Favicon{"./favicon.ico"}},
+//       // Static dir
+//       q.Entry{Path: "/public", Parser: q.Dir{Directory: "./assets", Gzip: true}},
+//       // http://mydomain.com
+//       q.Entry{Method: q.MethodGet, Path: "/", Handler: indexHandler},
+//       // Routes grouping
+//       q.Entry{Path: "/users", Begin: q.Handlers{auth}, Entries: q.Entries{
+//         // http://mydomain.com/users
+//         q.Entry{Method :q.MethodGet, Path: "/", Handler: usersHandler},
+//         // http://mydomain.com/users/signout
+//         q.Entry{Method: q.MethodPost, Path: "/signout",Handler: signoutPostHandler},
+//         // http://mydomain.com/users/profile/1
+//         q.Entry{Method: q.MethodGet, Path: "/profile/:id", Handler: userProfileHandler},
+//       }},
+//       // Register a subdomain
+//       q.Entry{Path: "api.",Entries: q.Entries{
+//           // http://api.mydomain.com/users/1
+//         q.Entry{Method: q.MethodGet, Path: "/users/:id", Handler: userByIdHandler},
+//       }},
+//       // wildcard subdomain
+//       q.Entry{Path: "*.", Entries:q.Entries{
+//         //q.Entry{...},
+//       }},
+//     },
+//   }}.Go()
 // }
 
 package q
@@ -159,7 +54,7 @@ import (
 
 const (
 	// Version of the Q Web Framework
-	Version = "0.0.1"
+	Version = "0.0.2"
 	// currently not used but keep it here for any case :), Iris' habits never ends
 	banner = `    ____
   / __ \
@@ -189,7 +84,7 @@ type Q struct {
 	CertFile, KeyFile string
 	// if true then the .Go is not listens and serves, it prepares the net/http handler to be used inside a custom handler, the Host should be given in any case for smooth experience.
 	DisableServer bool
-
+	listener      *ServerListener // the only reason it's exists as field is to be able to close the http(net) listener
 	// end http server
 
 	// Charset used to render/send responses to the client
@@ -214,8 +109,8 @@ type Q struct {
 	Session    Session
 	sessions   *sessionsManager
 	Websockets Websockets
-
-	Tester Tester
+	SSH        SSH
+	Tester     Tester
 }
 
 // builder
@@ -248,6 +143,7 @@ func (q *Q) build() {
 		},
 		reload: q.DevMode,
 	}
+
 	q.Templates.loadTo(q.templates)
 
 	// responses
@@ -262,27 +158,30 @@ func (q *Q) build() {
 
 	// request & handler
 	q.Request.build(q.Host)
+
+	// SSH (builds the commands and starts the ssh server (if DisableServer is false) (yes, before the http server))
+	q.SSH.bindTo(q)
 }
 
 func (q *Q) runServer() error {
 	// start the http server
 	underlineServer := &http.Server{Handler: q}
-	listener := newServerListener(underlineServer)
+	q.listener = newServerListener(underlineServer)
 
 	if q.CertFile != "" && q.KeyFile != "" {
 		// means manualy tls
-		return listener.ListenTLSManual(q.Host, q.CertFile, q.KeyFile)
+		return q.listener.ListenTLSManual(q.Host, q.CertFile, q.KeyFile)
 	} else if parsePort(q.Host) == 443 {
 		// means automatic tls
 		// so let's start the http server first, which will redirect to https://+q.Host/$PATH, or no, I will make a functon which will return a new q
 		// which will automatically redirect to this 'secure' q, like a fake 'proxy'
-		return listener.ListenTLS(q.Host)
+		return q.listener.ListenTLS(q.Host)
 	} else if q.Mode > 0 {
 		// means unix
-		return listener.ListenUNIX(q.Host, q.Mode)
+		return q.listener.ListenUNIX(q.Host, q.Mode)
 	}
 	// just listen and serve http
-	return listener.Listen(q.Host)
+	return q.listener.Listen(q.Host)
 }
 
 func (q *Q) must(err error) {
@@ -296,7 +195,16 @@ func (q *Q) must(err error) {
 func (q Q) Go() *Q {
 	q.build()
 	if !q.DisableServer {
-		q.must(q.runServer())
+		//	q.must(q.runServer())
+		err := q.runServer()
+		if err != nil {
+			if q.SSH.IsListening() && strings.Contains(err.Error(), "use of closed network connection") { // propably manually restart
+				ch := make(chan os.Signal)
+				<-ch
+			} else {
+				q.Logger.Panic(err)
+			}
+		}
 	}
 	return &q
 }
