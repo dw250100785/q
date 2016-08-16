@@ -264,7 +264,10 @@ func generateSigner(keypath string, sshKeygenBin string) (ssh.Signer, error) {
 	if sshKeygenBin != "" {
 		// if empty then the user should specify the ssh-keygen bin path (if not setted already)
 		// on the $PATH system environment, otherwise it will panic.
-		sshKeygenBin += "/" + "ssh-keygen"
+		if sshKeygenBin[len(sshKeygenBin)-1] != os.PathListSeparator {
+			sshKeygenBin += string(os.PathSeparator)
+		}
+		sshKeygenBin += "ssh-keygen"
 		if isWindows {
 			sshKeygenBin += ".exe"
 		}
