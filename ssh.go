@@ -31,6 +31,7 @@ package q
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -39,8 +40,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/kataras/q/errors"
 	"golang.org/x/crypto/ssh"
@@ -470,6 +473,31 @@ func (s *SSH) handleChannel(newChannel ssh.NewChannel) {
 // -------------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------------
 
+func sshLoggerMiddleware(conn ssh.Channel, calculateLatency bool) Handler {
+	return func(ctx *Context) {
+		var date, status, ip, method, path string
+		var latency time.Duration
+		var startTime, endTime time.Time
+		path = ctx.Path()
+		method = ctx.Request.Method
+
+		startTime = time.Now()
+		if calculateLatency {
+			ctx.ForceNext()
+		}
+
+		endTime = time.Now()
+		latency = endTime.Sub(startTime)
+		date = endTime.Format("01/02 - 15:04:05")
+
+		status = strconv.Itoa(ctx.StatusCode()) // if ctx.SetStatusCode doesn't call itself then this will be always 200, default error handlers uses that so it should be ok
+		ip = ctx.RemoteAddr()
+
+		//finally print the logs to the ssh
+		conn.Write([]byte(fmt.Sprintf("%s %v %4v %s %s %s \n", date, status, latency, ip, method, path)))
+	}
+}
+
 func (s *SSH) bindTo(q *Q) {
 	if s.Enabled() && !s.IsListening() { // check if not listening because on restart this block will re-executing,but we don't want to start ssh again, ssh will never stops.
 
@@ -484,7 +512,7 @@ func (s *SSH) bindTo(q *Q) {
 				if q.listener != nil {
 					q.listener.Close()
 					q.listener = nil
-					conn.Write([]byte("Server has stopped\n"))
+					conn.Write([]byte("\tServer has stopped.\n"))
 				} else {
 					conn.Write([]byte("Error: Server is not even builded yet!\n"))
 				}
@@ -493,15 +521,37 @@ func (s *SSH) bindTo(q *Q) {
 				if q.listener == nil {
 					go q.runServer()
 				}
-				conn.Write([]byte("Server has started\n"))
+				conn.Write([]byte("\tServer has started.\n"))
 			}},
-			Command{Name: "restart", Description: "Restarts the Q http server. Note: It doesn't re-build the whole Q for security reasons.", Action: func(conn ssh.Channel) {
+			Command{Name: "restart", Description: "Restarts the Q http server. Note: It doesn't re-build the whole Q for security reasons", Action: func(conn ssh.Channel) {
 				if q.listener != nil {
 					q.listener.Close()
 					q.listener = nil
 				}
 				go q.runServer()
-				conn.Write([]byte("Server has restarted\n"))
+				conn.Write([]byte("\tServer has restarted.\n"))
+			}},
+			Command{Name: "log", Description: "Adds the logger middleware to all Routes, outputs live requests", Action: func(conn ssh.Channel) {
+				// the ssh user can still write commands, this is not blocking anything.
+
+				for i := range q.Request.mux.lookups {
+					q.Request.mux.lookups[i].handlers = append(Handlers{sshLoggerMiddleware(conn, true)}, q.Request.mux.lookups[i].handlers...)
+				}
+
+				// register to the errors also
+				for k, v := range q.Request.Errors {
+					errorH := v
+					// wrap the error handler with the ssh logger middleware
+					q.Request.Errors[k] = func(ctx *Context) {
+						errorH(ctx)
+						sshLoggerMiddleware(conn, false)(ctx) // after the error handler because that is setting the status code.
+					}
+				}
+				q.Request.mux.build() // rebuilds the mux, this will give some milleseconds of downtime
+
+				conn.Write([]byte("\tOK, Logger has been registered to the http server. New requests will be printed here, type 'exit' to exit.\n"))
+				// the middleware will still to run, we could remove it on exit but exit is general command I dont want to touch that
+				// we could make a command like 'log stop' or on 'stop' to remove the middleware...I will think about it.
 			}},
 		}
 

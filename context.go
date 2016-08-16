@@ -378,7 +378,7 @@ func (ctx *Context) ReadForm(formObject interface{}) error {
 // we could make a custom ResponseWriter to hold the status code, but, keep things simple to the end-user
 func (ctx *Context) SetStatusCode(code int) {
 	prevCode := ctx.GetInt(httpStatusCodeContextKey)
-	if prevCode == 0 {
+	if prevCode == -1 { // if not setted before using SetStatusCode then set it.
 		ctx.Set(httpStatusCodeContextKey, code)
 		ctx.ResponseWriter.WriteHeader(code)
 	}
