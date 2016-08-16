@@ -257,18 +257,23 @@ var DefaultSSHKeyPath = "q_rsa"
 var errSSHExecutableNotFound = errors.New(`Cannot generate ssh private key: ssh-keygen couldn't be found. Please specify the ssh[.exe] and ssh-keygen[.exe]
   path on your operating system's environment's $PATH or set the configuration field 'Bin'.\n For example, on windows, the path is: C:\\Program Files\\Git\usr\\bin. Error Trace: %q`)
 
-func generateSigner(keypath string, sshKeygenBinPath string) (ssh.Signer, error) {
+func generateSigner(keypath string, sshKeygenBin string) (ssh.Signer, error) {
 	if keypath == "" {
 		keypath = DefaultSSHKeyPath
 	}
-	if sshKeygenBinPath != "" {
+	if sshKeygenBin != "" {
 		// if empty then the user should specify the ssh-keygen bin path (if not setted already)
 		// on the $PATH system environment, otherwise it will panic.
-		sshKeygenBinPath += " "
+		sshKeygenBin += "/" + "ssh-keygen"
+		if isWindows {
+			sshKeygenBin += ".exe"
+		}
+	} else {
+		sshKeygenBin = "ssh-keygen"
 	}
 	if !directoryExists(keypath) {
 		os.MkdirAll(filepath.Dir(keypath), os.ModePerm)
-		keygenCmd := exec.Command(sshKeygenBinPath+"ssh-keygen", "-f", keypath, "-t", "rsa", "-N", "")
+		keygenCmd := exec.Command(sshKeygenBin, "-f", keypath, "-t", "rsa", "-N", "")
 		_, err := keygenCmd.Output()
 		if err != nil {
 			panic(errSSHExecutableNotFound.Format(err.Error()))
