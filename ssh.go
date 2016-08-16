@@ -26,6 +26,7 @@ package q
 // stop
 // start
 // restart
+// log
 // help
 // exit
 
