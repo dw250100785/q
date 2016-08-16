@@ -254,17 +254,24 @@ func (m Users) exists(username string, pass []byte) bool {
 // DefaultSSHKeyPath used if SSH.KeyPath is empty. Defaults to: "q_rsa". It can be changed.
 var DefaultSSHKeyPath = "q_rsa"
 
-func generateSigner(keypath string) (ssh.Signer, error) {
+var errSSHExecutableNotFound = errors.New(`Cannot generate ssh private key: ssh-keygen couldn't be found. Please specify the ssh[.exe] and ssh-keygen[.exe]
+  path on your operating system's environment's $PATH or set the configuration field 'Bin'.\n For example, on windows, the path is: C:\\Program Files\\Git\usr\\bin. Error Trace: %q`)
+
+func generateSigner(keypath string, sshKeygenBinPath string) (ssh.Signer, error) {
 	if keypath == "" {
 		keypath = DefaultSSHKeyPath
 	}
-
+	if sshKeygenBinPath != "" {
+		// if empty then the user should specify the ssh-keygen bin path (if not setted already)
+		// on the $PATH system environment, otherwise it will panic.
+		sshKeygenBinPath += " "
+	}
 	if !directoryExists(keypath) {
 		os.MkdirAll(filepath.Dir(keypath), os.ModePerm)
-		keygenCmd := exec.Command("ssh-keygen", "-f", keypath, "-t", "rsa", "-N", "")
+		keygenCmd := exec.Command(sshKeygenBinPath+"ssh-keygen", "-f", keypath, "-t", "rsa", "-N", "")
 		_, err := keygenCmd.Output()
 		if err != nil {
-			return nil, err
+			panic(errSSHExecutableNotFound.Format(err.Error()))
 		}
 	}
 
@@ -350,6 +357,7 @@ const (
 // but its should works
 // use it at your own risk.
 type SSH struct {
+	Bin      string // windows: C:/Program Files/Git/usr/bin, it's the ssh[.exe] and ssh-keygen[.exe], we only need the ssh-keygen.
 	KeyPath  string // C:/Users/kataras/.ssh/q_rsa
 	Host     string // host:port
 	listener net.Listener
@@ -403,7 +411,7 @@ var (
 func (s *SSH) Listen() error {
 
 	// get the key
-	privateKey, err := generateSigner(s.KeyPath)
+	privateKey, err := generateSigner(s.KeyPath, s.Bin)
 	if err != nil {
 		return err
 	}
