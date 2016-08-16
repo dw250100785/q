@@ -123,8 +123,11 @@ func (websockets Websockets) copyTo(entries *Entries) {
 				}
 			}
 		}}
-		clientSourceEntry := Entry{Method: MethodGet, Path: w.ClientSourcePath, Parser: File{ContentType: contentJSON, Content: websocketClientSource}}
-		entries.Add(upgraderEntry, clientSourceEntry)
+		clientSourceEntryName := "q-websocket-client-side"
+		if entries.ByName(clientSourceEntryName) == nil { // if entry is not already setted, we need only one client-side export, so just chekc that static name
+			clientSourceEntry := Entry{Name: clientSourceEntryName, Method: MethodGet, Path: w.ClientSourcePath, Parser: File{ContentType: contentJSON, Content: websocketClientSource}}
+			entries.Add(upgraderEntry, clientSourceEntry)
+		}
 
 	}
 

@@ -21,6 +21,20 @@ func (entries *Entries) Add(entr ...Entry) {
 	*entries = append(pEntries, entr...)
 }
 
+// ByName return an entry by it's name
+//
+// Note: It doesn't return the same thing as Request.GetEntr which returns CompiledEntry or Request.mux.lookup which returns *route, this is for unregistered entries, before .registerEntry on mux.
+// used internaly by Q.
+func (entries *Entries) ByName(entryName string) *Entry {
+	pEntries := *entries
+	for i := range pEntries {
+		if pEntries[i].Name == entryName {
+			return &pEntries[i]
+		}
+	}
+	return nil
+}
+
 // EntryParser allows to pass a Entry-like struct-iteral into the Request.Entries
 // useful when needed to set custom Entry's fields on a user-defined Entry
 // see fs.go for more
