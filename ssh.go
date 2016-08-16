@@ -54,6 +54,17 @@ import (
 // -------------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------------
 
+func _output(format string, a ...interface{}) func(io.Writer) {
+	if format[len(format)-3:] != "\n" {
+		format += "\n"
+	}
+	msgBytes := []byte(fmt.Sprintf(format, a...))
+
+	return func(w io.Writer) {
+		w.Write(msgBytes)
+	}
+}
+
 func (s *SSH) bindTo(q *Q) {
 	if s.Enabled() && !s.IsListening() { // check if not listening because on restart this block will re-executing,but we don't want to start ssh again, ssh will never stops.
 
@@ -61,12 +72,25 @@ func (s *SSH) bindTo(q *Q) {
 			s.Logger = q.Logger
 		}
 
+		// cache the messages to be sent to the channel, no need to produce memory allocations here
+		statusRunningMsg := _output("The HTTP Server is running.")
+		statusNotRunningMsg := _output("The HTTP Server is NOT running.")
+
+		serverStoppedMsg := _output("The HTTP Server has been stopped.")
+		errServerNotReadyMsg := _output("Error: HTTP Server is not even builded yet!")
+
+		serverStartedMsg := _output("The HTTP Server has been started.")
+		serverRestartedMsg := _output("The HTTP Server has been restarted.")
+
+		loggerStartedMsg := _output("Logger has been registered to the HTTP Server.\nNew Requests will be printed here.\nYou can still type 'exit' to close this SSH Session.\n\n")
+		//
+
 		sshCommands := Commands{
 			Command{Name: "status", Description: "Prompts the status of the HTTP Server, is listening(started) or not(stopped).", Action: func(conn ssh.Channel) {
 				if q.listener != nil {
-					writeTo(conn, "The HTTP Server is running.")
+					statusRunningMsg(conn)
 				} else {
-					writeTo(conn, "The HTTP Server is NOT running.")
+					statusNotRunningMsg(conn)
 				}
 			}},
 			// Note for stop If you have opened a tab with Q route:
@@ -75,16 +99,16 @@ func (s *SSH) bindTo(q *Q) {
 				if q.listener != nil {
 					q.listener.Close()
 					q.listener = nil
-					writeTo(conn, "The HTTP Server has been stopped.")
+					serverStoppedMsg(conn)
 				} else {
-					writeTo(conn, "Error: HTTP Server is not even builded yet!")
+					errServerNotReadyMsg(conn)
 				}
 			}},
 			Command{Name: "start", Description: "Starts the HTTP Server.", Action: func(conn ssh.Channel) {
 				if q.listener == nil {
 					go q.runServer()
 				}
-				writeTo(conn, "The HTTP Server has been started.")
+				serverStartedMsg(conn)
 			}},
 			Command{Name: "restart", Description: "Restarts the HTTP Server.", Action: func(conn ssh.Channel) {
 				if q.listener != nil {
@@ -92,7 +116,7 @@ func (s *SSH) bindTo(q *Q) {
 					q.listener = nil
 				}
 				go q.runServer()
-				writeTo(conn, "The HTTP Server has been restarted.")
+				serverRestartedMsg(conn)
 			}},
 			Command{Name: "log", Description: "Adds a logger to the HTTP Server, waits for requests and prints them here.", Action: func(conn ssh.Channel) {
 				// the ssh user can still write commands, this is not blocking anything.
@@ -114,7 +138,7 @@ func (s *SSH) bindTo(q *Q) {
 
 				q.Request.mux.build() // rebuilds the mux, this will give some milleseconds of downtime
 
-				writeTo(conn, "Logger has been registered to the HTTP Server.\nNew Requests will be printed here.\nYou can still type 'exit' to close this SSH Session.\n\n")
+				loggerStartedMsg(conn)
 				// the middleware will still to run, we could remove it on exit but exit is general command I dont want to touch that
 				// we could make a command like 'log stop' or on 'stop' to remove the middleware...I will think about it.
 			}},
@@ -436,13 +460,6 @@ func (s *SSH) handleChannels(chans <-chan ssh.NewChannel) {
 }
 
 var errUnsupportedReqType = errors.New("Unsupported request type: %q")
-
-func writeTo(conn io.Writer, format string, a ...interface{}) {
-	if format[len(format)-3:] != "\n" {
-		format += "\n"
-	}
-	conn.Write([]byte(fmt.Sprintf(format, a...)))
-}
 
 func (s *SSH) handleChannel(newChannel ssh.NewChannel) {
 	// we working from terminal, so only type of "session" is allowed.
