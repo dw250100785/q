@@ -1,10 +1,13 @@
 package q
 
 import (
+	"fmt"
 	"io"
 	"net/http/pprof"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Entries TODO:
@@ -267,4 +270,34 @@ func (s Profile) ParseEntry(e Entry) Entry {
 
 	e.Handler = h
 	return e
+}
+
+// NewLoggerHandler is a basic Logger middleware/Handler (not an Entry Parser)
+func NewLoggerHandler(writer io.Writer, calculateLatency ...bool) Handler {
+	shouldNext := false
+	if len(calculateLatency) > 0 {
+		shouldNext = calculateLatency[0]
+	}
+	return func(ctx *Context) {
+		var date, status, ip, method, path string
+		var latency time.Duration
+		var startTime, endTime time.Time
+		path = ctx.Path()
+		method = ctx.Request.Method
+
+		startTime = time.Now()
+		if shouldNext {
+			ctx.ForceNext()
+		}
+
+		endTime = time.Now()
+		latency = endTime.Sub(startTime)
+		date = endTime.Format("01/02 - 15:04:05")
+
+		status = strconv.Itoa(ctx.StatusCode()) // if ctx.SetStatusCode doesn't call itself then this will be always 200, default error handlers uses that so it should be ok
+		ip = ctx.RemoteAddr()
+
+		//finally print the logs to the ssh
+		writer.Write([]byte(fmt.Sprintf("%s %v %4v %s %s %s \n", date, status, latency, ip, method, path)))
+	}
 }
