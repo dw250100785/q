@@ -119,8 +119,9 @@ func (websockets Websockets) copyTo(entries *Entries) {
 		upgraderEntry := Entry{Method: MethodGet, Path: w.Endpoint, Handler: func(ctx *Context) {
 			if err := s.Upgrade(ctx); err != nil {
 				if ctx.Q().DevMode {
-					ctx.Q().Logger.Printf("Websocket error: %s", err.Error())
+					ctx.Q().Logger.Printf("Websocket error while trying to Upgrade the connection. Trace: %s", err.Error())
 				}
+				ctx.EmitError(StatusBadRequest)
 			}
 		}}
 		clientSourceEntryName := "q-websocket-client-side"
