@@ -831,14 +831,14 @@ func (ctx *Context) GetFlash(key string) (string, error) {
 // SetFlash sets a flash message, accepts 2 parameters the name(string) and the value(string)
 // the value will be available on the NEXT request
 func (ctx *Context) SetFlash(name string, value string) {
-	//c := AcquireCookie()
-	c := &http.Cookie{}
+	c := AcquireCookie()
+	//c := &http.Cookie{}
 	c.Name = flashMessageCookiePrefix + name
 	c.Value = encodeCookieValue(value)
 	c.Path = "/"
 	c.HttpOnly = true
 	ctx.AddCookie(c)
-	//ReleaseCookie(c)
+	ReleaseCookie(c)
 }
 
 // Session returns the current session

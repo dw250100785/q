@@ -3,7 +3,6 @@ package q
 import (
 	"container/list"
 	"encoding/base64"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -376,7 +375,8 @@ func (m *sessionsManager) start(ctx *Context) *sessionStore {
 	if cookieValue == "" { // cookie doesn't exists, let's generate a session and add set a cookie
 		sid := m.generateSessionID()
 		session = m.provider.init(sid)
-		cookie := &http.Cookie{}
+		//cookie := &http.Cookie{}
+		cookie := AcquireCookie()
 		// The RFC makes no mention of encoding url value, so here I think to encode both sessionid key and the value using the safe(to put and to use as cookie) url-encoding
 		cookie.Name = m.config.Cookie
 		cookie.Value = sid
@@ -421,7 +421,7 @@ func (m *sessionsManager) start(ctx *Context) *sessionStore {
 		} // if it's -1 then the cookie is deleted when the browser closes
 
 		ctx.AddCookie(cookie)
-		//ReleaseCookie(cookie)
+		ReleaseCookie(cookie)
 	} else {
 		session = m.provider.read(cookieValue)
 	}
