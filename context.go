@@ -603,13 +603,24 @@ func (ctx *Context) ServeContent(content io.ReadSeeker, filename string, modtime
 	return errServeContent.With(err)
 }
 
-// ServeFile serves a view file, to send a file ( zip for example) to the client you should use the SendFile(serverfilename,clientfilename)
+// ServeFile serves a view file, to send a file ( zip for example) to the client with other filename
+// you should use the SendFile(serverfilename,clientfilename)
+// it just calls the http.ServeFile
+//
+// Use this when you want to serve css/js/... files to the client, for bigger files and 'force-download' use the SendFile
+func (ctx *Context) ServeFile(filename string) {
+	http.ServeFile(ctx.ResponseWriter, ctx.Request, filename)
+}
+
+// ServeFileContent serves a view file, to send a file ( zip for example) to the client you should use the SendFile(serverfilename,clientfilename)
 // receives two parameters
 // filename/path (string)
 // gzipCompression (bool)
 //
 // You can define your own "Content-Type" header also, after this function call
-func (ctx *Context) ServeFile(filename string, gzipCompression bool) error {
+// Note: this was the previous implementation of ctx.ServeFile
+//
+func (ctx *Context) ServeFileContent(filename string, gzipCompression bool) error {
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("%d", 404)
@@ -629,16 +640,10 @@ func (ctx *Context) ServeFile(filename string, gzipCompression bool) error {
 
 // SendFile sends file for force-download to the client
 //
-// You can define your own "Content-Type" header also, after this function call
-// for example: ctx.Response.Header.Set("Content-Type","thecontent/type")
-func (ctx *Context) SendFile(filename string, destinationName string) error {
-	err := ctx.ServeFile(filename, false)
-	if err != nil {
-		return err
-	}
-
+// Use this instead of ServeFile to 'force-download' bigger files to the client
+func (ctx *Context) SendFile(filename string, destinationName string) {
+	ctx.ServeFile(filename)
 	ctx.ResponseWriter.Header().Set(contentDisposition, "attachment;filename="+destinationName)
-	return nil
 }
 
 /* Storage */

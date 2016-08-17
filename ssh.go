@@ -18,7 +18,7 @@ package q
 //
 // or via standalone command and exit:
 //
-// $ ssh kataras@localhost -p help
+// $ ssh kataras@localhost stop
 //
 //
 // Commands available:
@@ -41,9 +41,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
+	"github.com/kardianos/osext"
+	"github.com/kardianos/service"
 	"github.com/kataras/q/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -66,6 +70,16 @@ func _output(format string, a ...interface{}) func(io.Writer) {
 	}
 }
 
+type systemServiceWrapper struct{}
+
+func (w *systemServiceWrapper) Start(s service.Service) error {
+	return nil
+}
+
+func (w *systemServiceWrapper) Stop(s service.Service) error {
+	return nil
+}
+
 func (s *SSH) bindTo(q *Q) {
 	if s.Enabled() && !s.IsListening() { // check if not listening because on restart this block will re-executing,but we don't want to start ssh again, ssh will never stops.
 
@@ -75,7 +89,7 @@ func (s *SSH) bindTo(q *Q) {
 
 		// cache the messages to be sent to the channel, no need to produce memory allocations here
 		statusRunningMsg := _output("The HTTP Server is running.")
-		statusNotRunningMsg := _output("The HTTP Server is NOT running.")
+		statusNotRunningMsg := _output("The HTTP Server is NOT running. ")
 
 		serverStoppedMsg := _output("The HTTP Server has been stopped.")
 		errServerNotReadyMsg := _output("Error: HTTP Server is not even builded yet!")
@@ -92,6 +106,10 @@ func (s *SSH) bindTo(q *Q) {
 					statusRunningMsg(conn)
 				} else {
 					statusNotRunningMsg(conn)
+				}
+				execPath, err := osext.Executable() // this works fine, if the developer builded the go app, if just go run main.go then prints the temporary path which the go tool creates
+				if err == nil {
+					conn.Write([]byte("[EXEC] " + execPath + "\n"))
 				}
 			}},
 			// Note for stop If you have opened a tab with Q route:
@@ -118,6 +136,148 @@ func (s *SSH) bindTo(q *Q) {
 				}
 				go q.runServer()
 				serverRestartedMsg(conn)
+			}},
+			Command{Name: "service", Description: "[REQUIRES HTTP SERVER's ADMIN PRIVILEGE] Adds the web server to the system services, use it when you want to make your server to autorun on reboot", Action: func(conn ssh.Channel) {
+				///TODO:
+				// 1. Unistall service and change the 'service' to 'install service'
+				// 2. Fix, this current implementation doesn't works on windows 10 it says that the service is not responding to request and start...
+				// 2.1 the fix is maybe add these and change the s.Install to s.Run to the $DESKTOP/some/q/main.go I will try this
+				// as the example shows:
+				/*
+					package main
+
+					import (
+						"flag"
+						"log"
+						"time"
+
+						"github.com/kardianos/service"
+					)
+
+					var logger service.Logger
+
+					// Program structures.
+					//  Define Start and Stop methods.
+					type program struct {
+						exit chan struct{}
+					}
+
+					func (p *program) Start(s service.Service) error {
+						if service.Interactive() {
+							logger.Info("Running in terminal.")
+						} else {
+							logger.Info("Running under service manager.")
+						}
+						p.exit = make(chan struct{})
+
+						// Start should not block. Do the actual work async.
+						go p.run()
+						return nil
+					}
+					func (p *program) run() error {
+						logger.Infof("I'm running %v.", service.Platform())
+						ticker := time.NewTicker(2 * time.Second)
+						for {
+							select {
+							case tm := <-ticker.C:
+								logger.Infof("Still running at %v...", tm)
+							case <-p.exit:
+								ticker.Stop()
+								return nil
+							}
+						}
+					}
+					func (p *program) Stop(s service.Service) error {
+						// Any work in Stop should be quick, usually a few seconds at most.
+						logger.Info("I'm Stopping!")
+						close(p.exit)
+						return nil
+					}
+
+					// Service setup.
+					//   Define service config.
+					//   Create the service.
+					//   Setup the logger.
+					//   Handle service controls (optional).
+					//   Run the service.
+					func main() {
+						svcFlag := flag.String("service", "", "Control the system service.")
+						flag.Parse()
+
+						svcConfig := &service.Config{
+							Name:        "GoServiceExampleLogging",
+							DisplayName: "Go Service Example for Logging",
+							Description: "This is an example Go service that outputs log messages.",
+						}
+
+						prg := &program{}
+						s, err := service.New(prg, svcConfig)
+						if err != nil {
+							log.Fatal(err)
+						}
+						errs := make(chan error, 5)
+						logger, err = s.Logger(errs)
+						if err != nil {
+							log.Fatal(err)
+						}
+
+						go func() {
+							for {
+								err := <-errs
+								if err != nil {
+									log.Print(err)
+								}
+							}
+						}()
+
+						if len(*svcFlag) != 0 {
+							err := service.Control(s, *svcFlag)
+							if err != nil {
+								log.Printf("Valid actions: %q\n", service.ControlAction)
+								log.Fatal(err)
+							}
+							return
+						}
+						err = s.Run()
+						if err != nil {
+							logger.Error(err)
+						}
+					}
+
+
+				*/
+				// remember: run command line as administrator > sc delete "Q Web Server - $DATETIME" to delete the service, do it on each test.
+				svcConfig := &service.Config{
+					Name:        "Q Web Server - " + time.Now().Format(q.TimeFormat),
+					DisplayName: "Q Web Server - " + time.Now().Format(q.TimeFormat),
+					Description: "The web server which has been registered by SSH interface.",
+				}
+
+				prg := &systemServiceWrapper{}
+				s, err := service.New(prg, svcConfig)
+
+				if err != nil {
+					conn.Write([]byte(err.Error() + "\n"))
+					return
+				}
+
+				err = s.Install()
+				if err != nil {
+					conn.Write([]byte(err.Error() + "\n"))
+					return
+				}
+				conn.Write([]byte("Service has been registered.\n"))
+
+				/*
+					_, err = s.Logger(nil)
+					if err != nil {
+						conn.Write([]byte(err.Error()))
+					}
+					err = s.Run()
+					if err != nil {
+						conn.Write([]byte(err.Error()))
+					}*/
+
 			}},
 			Command{Name: "log", Description: "Adds a logger to the HTTP Server, waits for requests and prints them here.", Action: func(conn ssh.Channel) {
 				// the ssh user can still write commands, this is not blocking anything.
@@ -370,7 +530,7 @@ type SSH struct {
 	KeyPath  string // C:/Users/kataras/.ssh/q_rsa
 	Host     string // host:port
 	listener net.Listener
-	Users    Users    // map[string]string{ "username":[]byte("password"), "my_second_username" : []byte("my_second_password")}
+	Users    Users    // map[string][]byte]{ "username":[]byte("password"), "my_second_username" : []byte("my_second_password")}
 	Commands Commands // Commands{Command{Name: "restart", Description:"restarts & rebuild the server", Action: func(ssh.Channel){}}}
 	// note for Commands field:
 	// the default  Q's commands are defined at the end of this file, I tried to make this file as standalone as I can, because it will be used for Iris web framework also.
@@ -398,8 +558,21 @@ func (s *SSH) logf(format string, a ...interface{}) {
 var standardCommands = Commands{Command{Name: "help", Description: "Opens up the assistance"},
 	Command{Name: "exit", Description: "Exits from the terminal (if interactive shell)"}}
 
+// parsePort receives an addr of form host[:port] and returns the port part of it
+// ex: localhost:8080 will return the `8080`, mydomain.com will return the '22'
+func parseSSHPort(addr string) int {
+	if portIdx := strings.IndexByte(addr, ':'); portIdx != -1 {
+		afP := addr[portIdx+1:]
+		p, err := strconv.Atoi(afP)
+		if err == nil {
+			return p
+		}
+	}
+	return 22
+}
+
 func (s *SSH) writeHelp(wr io.Writer) {
-	port := parsePort(s.Host)
+	port := parseSSHPort(s.Host)
 	hostname := parseHostname(s.Host)
 
 	data := map[string]interface{}{

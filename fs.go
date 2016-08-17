@@ -110,7 +110,7 @@ func (s Dir) ParseEntry(e Entry) Entry {
 			return
 		}
 
-		ctx.ServeFile(spath, s.Gzip)
+		ctx.ServeFileContent(spath, s.Gzip)
 	}
 
 	if s.StripPrefix != "" {
