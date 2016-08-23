@@ -333,10 +333,10 @@ var (
 	helpMessage = SSHBanner + `
 COMMANDS:
 	  {{ range $index, $cmd := .Commands }}
-		  {{- $cmd.Name }} - {{ $cmd.Description }}
+		  {{- $cmd.Name }} | {{ $cmd.Description }}
 	  {{ end }}
 USAGE:
-	  ssh myusername@{{ .Hostname}} -p {{ .Port }} {{ first .Commands}}
+	  ssh myusername@{{ .Hostname}} {{ .PortDeclaration }} {{ first .Commands}}
 	  or just write the command below
 VERSION:
 	  {{ .Version }}
@@ -576,7 +576,7 @@ func (s *SSH) writeHelp(wr io.Writer) {
 	hostname := parseHostname(s.Host)
 
 	data := map[string]interface{}{
-		"Hostname": hostname, "Port": port,
+		"Hostname": hostname, "PortDeclaration": "-p " + strconv.Itoa(port),
 		"Commands": append(s.Commands, standardCommands...),
 		"Version":  Version,
 	}

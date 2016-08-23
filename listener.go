@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kataras/q/errors"
-
 	"github.com/q-contrib/letsencrypt"
 )
 
